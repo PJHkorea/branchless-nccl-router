@@ -24,13 +24,12 @@
 
 
 ```python
-
 # Eradicate control branches and stream directly into the algebraic mask circuit
 global_sync_mask = jax.lax.psum(is_packet_corrupted, axis_name=cluster_axis_name)
 is_mesh_clean = (global_sync_mask == literal_zero).astype(target_dtype)
 next_jitter_flag = network_jitter_flag * is_mesh_clean
-
 ```
+
 
 ### 2. 다중 노드 SRAM Spill Over 방어형 클로저 스캔 (SRAM Register Locking)
 
