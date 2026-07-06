@@ -14,6 +14,13 @@
 - 다중 노드 분산 학습/추론 환경에서 엔지니어들을 가장 괴롭히는 난제는 "특정 노드가 패킷을 다 받았는지 확인하기 위해 멈춰 서는 하드웨어 동기화 펜스(Fence Stall) 병목"입니다. 
 본 커널은 네트워크 패킷 유실 및 오염 여부를 판정하는 `if (is_packet_corrupted)` 같은 제어문을 제거했습니다. 대신 JAX/XLA 백엔드에 상주하는 NCCL All-Reduce 코어 프리미티브인 `jax.lax.psum` 연산 결과를 불린이 아닌 단정밀도 부동소수점 마스크 수식 `(global_sync_mask == 0.0).astype(target_dtype)` 내부의 피연산자로 직결했습니다. 32개 디바이스는 네트워크 전송 상태나 지터 발생 여부와 무관하게, 물리 NCCL 링(Ring) 레일 위를 동일한 속도로 움직이게 됩니다.
 
+```python
+# [The Core Magic] 제어 분기문을 제거하고 대수적 수축소멸 회로로 직결
+global_sync_mask = jax.lax.psum(is_packet_corrupted, axis_name=cluster_axis_name)
+is_mesh_clean = (global_sync_mask == literal_zero).astype(target_dtype)
+next_jitter_flag = network_jitter_flag * is_mesh_clean
+```
+
 ### 2. 다중 노드 SRAM Spill Over 방어형 클로저 스캔 (SRAM Register Locking)
 
 - 32개 디바이스의 대규모 패킷 스트림 데이터를 루프 단계마다 통째로 들고 이동(Carry)하면 가속기는 고속 온칩 메모리 용량 부족으로 데이터를 글로벌 VRAM으로 빼두는 레지스터 스필오버(Register Spill) 병목이 생깁니다. 
