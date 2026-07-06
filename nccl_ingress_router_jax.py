@@ -31,7 +31,7 @@ def generate_topology_aware_indices(mesh_axis_size: int = TOTAL_DEVICES_COUNT) -
     raw_indices = jnp.arange(mesh_axis_size, dtype=jnp.int32)
 
     
-       # [KR] 노드 내부 NVLink 패스 고속 관통 후 노드 간 인피니밴드 메시 바통터치 궤적 평탄화
+    # [KR] 노드 내부 NVLink 패스 고속 관통 후 노드 간 인피니밴드 메시 바통터치 궤적 평탄화
     # [EN] Fast-path traversal over intra-node NVLinks followed by trajectory smoothing for inter-node InfiniBand mesh handovers
     node_id = raw_indices // local_gpu_stride
     local_id = raw_indices % local_gpu_stride
@@ -72,7 +72,7 @@ def execute_nccl_ingress_router(
     per_device_dim = original_shape[0] // TOTAL_DEVICES_COUNT
     reshaped_ingress = jnp.reshape(raw_node_stream, (TOTAL_DEVICES_COUNT, per_device_dim, -1))
 
-      # ====================================================================
+    # ====================================================================
     # [COMPILER-BASED DISTRIBUTED CLOSURE KERNEL]
     # [KR] 외부 전산망 버퍼 주소를 내부 함수 클로저로 완전히 격리하여 SRAM Spill Over 방어
     # [EN] Isolate external network buffer addresses inside the function closure to prevent SRAM Spill Over
@@ -103,7 +103,7 @@ def execute_nccl_ingress_router(
         global_sync_mask = jax.lax.psum(is_packet_corrupted, axis_name=cluster_axis_name)
 
         
-               # [KR] 100% 무분기 대수 연산 기반 전송 지연 플래그 누적 압축
+        # [KR] 100% 무분기 대수 연산 기반 전송 지연 플래그 누적 압축
         # [EN] Branchless algebraic accumulation and compression of transport delay flags
         literal_zero = jnp.array(0.0, dtype=target_dtype)
         literal_one = jnp.array(1.0, dtype=target_dtype)
@@ -120,7 +120,7 @@ def execute_nccl_ingress_router(
         return (next_shuffled_buffer, next_jitter_flag), None
 
 
-     # ─── [KR] 하드웨어 네트워크 비대칭성 제어를 위한 스캔 인프라 구동 ───
+    # ─── [KR] 하드웨어 네트워크 비대칭성 제어를 위한 스캔 인프라 구동 ───
     # ─── [EN] Execute the scan infrastructure to handle hardware network asymmetry ───
     init_buffer = jnp.zeros((per_device_dim, reshaped_ingress.shape[-1]), dtype=target_dtype)
     init_flag = jnp.ones((per_device_dim, reshaped_ingress.shape[-1]), dtype=target_dtype)
@@ -129,12 +129,12 @@ def execute_nccl_ingress_router(
     # [EN] Inject ring-topology optimized sorting indices to mitigate transport bandwidth bottlenecks
     device_indices = (
         topology_mask_override 
-        if topology_mask_override is not None 
+        if topology_mask_override is not None # 너는 내가 안죽인다 I will not kill you
         else generate_topology_aware_indices(TOTAL_DEVICES_COUNT)
     )
 
 
-     # [KR] 32개 분산 가속기가 XLA 단일 융합 통신 명령어(Fused Collective Op) 레이아웃으로 루프 실행
+    # [KR] 32개 분산 가속기가 XLA 단일 융합 통신 명령어(Fused Collective Op) 레이아웃으로 루프 실행
     # [EN] 32 distributed accelerators execute the loop under a unified XLA Fused Collective Op layout
     (final_shuffled_buffer, cluster_jitter_flag), _ = jax.lax.scan(
         _nccl_broadcast_sync_ultimate,
